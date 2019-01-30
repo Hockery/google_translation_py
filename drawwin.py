@@ -1,10 +1,14 @@
 
 import sys
-from PyQt5.QtWidgets import QApplication, QWidget
-from PyQt5.QtGui import QPixmap, QPainter, QCursor, QBitmap
+from PyQt5.QtWidgets import QApplication, QWidget, QTextEdit, QPushButton, QVBoxLayout, QHBoxLayout, QLabel, QSystemTrayIcon, QMenu, QAction
+from PyQt5.QtGui import QPixmap, QPainter, QCursor, QBitmap, QIcon
 from PyQt5.QtCore import Qt, QPoint
 from qtpy.QtGui import QPen, QColor
+from HandleJs import Py4Js    
+import re
 
+import main 
+#Python控制鼠标和键盘-PyAutoGUI
 
 class ShapeWidget(QWidget):
     def __init__(self, parent=None):
@@ -16,6 +20,57 @@ class ShapeWidget(QWidget):
         self.height = 0
         self.radius = 0
         self.set_window(300,300,10)
+        self.js = Py4Js()   
+
+        #创建多行文本框
+        self.textEdit1=QTextEdit()
+        self.textEdit2=QLabel()
+        self.textEdit2.setWordWrap(True)
+        #创建两个按钮
+        self.btnPress1=QPushButton('清空')
+        self.btnPress2=QPushButton('翻译')
+
+        #实例化垂直布局
+        layout=QVBoxLayout()
+        #相关控件添加到垂直布局中
+        layout.addWidget(self.textEdit1)
+        btn_layout = QHBoxLayout()
+        btn_layout.addWidget(self.btnPress1)
+        btn_layout.addWidget(self.btnPress2)
+        layout.addLayout(btn_layout)
+        layout.addWidget(self.textEdit2)
+
+        #设置布局
+        self.setLayout(layout)
+        #将按钮的点击信号与相关的槽函数进行绑定，点击即触发
+        self.btnPress1.clicked.connect(self.btnPress1_clicked)
+        self.btnPress2.clicked.connect(self.btnPress2_clicked)
+
+    def deal_control_char(self, s):
+        temp=re.sub('[\x00-\x09|\x0b-\x0c|\x0e-\x1f]','',s)
+        return temp
+
+    def btnPress1_clicked(self):
+        #以文本的形式输出到多行文本框
+        self.textEdit2.setText('')
+        self.textEdit1.setPlainText('')
+
+    def btnPress2_clicked(self):
+        #以Html的格式输出多行文本框，字体红色，字号6号
+        text = self.deal_control_char(self.textEdit1.toPlainText()).strip()
+             
+        if text == '':
+            return
+        print(text)
+        # return 
+        tk = self.js.getTk(text)    
+        result=main.translate(text,tk) 
+        print ("result: ", result)
+        end = result.find("\",")    
+        if end > 4:    
+            print(result[4:end]) 
+        self.textEdit2.setText(result[4:end])
+
     def set_width(self, width):
         if not isinstance(width, int) or width < 0:
             return False
@@ -83,47 +138,14 @@ class ShapeWidget(QWidget):
         doodle_p.setRenderHint(QPainter.Antialiasing)
         doodle_p.setRenderHint(QPainter.HighQualityAntialiasing)
         doodle_p.setRenderHint(QPainter.SmoothPixmapTransform)
-        # --------------------解决点击没反应的问题--------------------
-        doodle_p.setPen(QPen(QColor(0, 0, 0, 0), 0))
-        if self.createMode == 'doodle_contour':
-            doodle_p.setBrush(QColor(0, 0, 0))
-        else: 
-            doodle_p.setBrush(QColor(255, 255, 255))
-        # if self.cur_pos != None:
-        #     print("point:", self.cur_pos)
-        #     doodle_p.drawEllipse(self.cur_pos, self.radius/2, self.radius/2) 
-        # ----------------------------------------------------------
-        # doodle_p.setBrush(QColor(255, 255, 255))
-        # doodle_p.drawRect(0, 0, 100, 100)
+        
         doodle_p.setBrush(QColor(0, 0, 0))
         doodle_p.drawRect(0, 0, self.width, self.height)
         self.draw_radius(doodle_p)
-        if self.createMode == 'doodle_contour':
-            doodle_pen = QPen(QColor(0, 0, 0), self.doodle_pen_size)
-        else: 
-            doodle_pen = QPen(QColor(255, 255, 255), self.doodle_pen_size)
-        doodle_pen.setCapStyle(Qt.RoundCap)
-        doodle_p.setPen(doodle_pen)
+
         doodle_p.setBrush(QColor(255, 160, 90))
         self.doodle_pixmap.save("a.png")
         return self.doodle_pixmap
-
-
-    # # 显示不规则 pix
-    # def mypix(self):
-    #     #获得图片自身的遮罩
-    #     back_mask = self.set_window(100,100,5)
-    #     if back_mask is None:
-    #         print("error back_mask")
-    #         return False
-
-    #     #将获得的图片的大小作为窗口的大小
-    #     self.resize(back_mask.size())
-    #     #增加一个遮罩
-    #     self.setMask(back_mask)
-    #     #print(self.pix.size())
-    #     self.dragPosition = None
-    #     return True
 
     # 重定义鼠标按下响应函数mousePressEvent(QMouseEvent)
     # 鼠标移动响应函数mouseMoveEvent(QMouseEvent)，使不规则窗体能响应鼠标事件，随意拖动。
